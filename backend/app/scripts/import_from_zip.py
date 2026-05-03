@@ -60,13 +60,18 @@ def _put_zip_member(
     key: str,
     content_type: str | None = None,
 ) -> int:
+    """Stream a zip member straight into S3 without buffering the whole file.
+
+    boto3's upload_fileobj uses multipart uploads transparently for large
+    objects, which is the only way 5 GB+ per-model archives fit into the
+    api container's 1.5 GB RAM limit.
+    """
     info = zf.getinfo(member)
-    with zf.open(info, "r") as src:
-        body = src.read()
-    kwargs: dict[str, Any] = {"Bucket": bucket, "Key": key, "Body": body}
+    extra: dict[str, Any] = {}
     if content_type:
-        kwargs["ContentType"] = content_type
-    s3.put_object(**kwargs)
+        extra["ContentType"] = content_type
+    with zf.open(info, "r") as src:
+        s3.upload_fileobj(src, bucket, key, ExtraArgs=extra)
     return info.file_size
 
 
