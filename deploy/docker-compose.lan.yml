@@ -1,5 +1,6 @@
 # LAN-only override: no Cloudflare Tunnel, web exposed on port 80,
-# host /imports mounted into api+worker for direct-from-zip imports.
+# host /imports mounted into api+worker for direct-from-zip imports,
+# MinIO :9000 exposed so presigned URLs are reachable from a LAN browser.
 services:
   cloudflared:
     profiles: ["never"]
@@ -14,3 +15,6 @@ services:
     volumes:
       - upload_buffer:/var/lib/meshnest/uploads
       - ${HOME}/imports:/imports:ro
+  minio:
+    ports:
+      - "9000:9000"
