@@ -24,7 +24,7 @@ router = APIRouter()
 async def upload_init(
     request: Request,
     body: UploadInitRequest,
-    _user: Annotated[User, Depends(require_contributor)],
+    _user: User = Depends(require_contributor),
 ) -> UploadInitResponse:
     try:
         meta = ub.init_upload(body.filename, body.total_size, body.expected_sha256)
@@ -46,8 +46,8 @@ async def upload_init(
 async def upload_chunk(
     request: Request,
     upload_id: str,
-    n: Annotated[int, Query(ge=0)],
-    _user: Annotated[User, Depends(require_contributor)],
+    n: int = Query(ge=0),
+    _user: User = Depends(require_contributor),
 ) -> Response:
     """Принимает binary body чанка. Размер enforced на serv-конфиге nginx (`client_max_body_size 100m`)."""
     raw = await request.body()
@@ -89,7 +89,7 @@ async def upload_status(
 async def upload_complete(
     request: Request,
     upload_id: str,
-    _user: Annotated[User, Depends(require_contributor)],
+    _user: User = Depends(require_contributor),
 ) -> UploadStatus:
     try:
         meta = await ub.complete_upload(upload_id)

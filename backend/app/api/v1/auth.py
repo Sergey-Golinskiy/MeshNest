@@ -70,7 +70,7 @@ async def _issue_pair(
 async def login(
     request: Request,
     body: LoginRequest,
-    session: Annotated[AsyncSession, Depends(get_db)],
+    session: AsyncSession = Depends(get_db),
 ) -> TokenPair:
     result = await session.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
@@ -130,7 +130,7 @@ async def logout(
 async def invite_info(
     request: Request,
     token: str,
-    session: Annotated[AsyncSession, Depends(get_db)],
+    session: AsyncSession = Depends(get_db),
 ) -> InviteInfo:
     invite = await get_valid_invite(session, token)
     if invite is None:
@@ -156,7 +156,7 @@ async def invite_redeem(
     request: Request,
     token: str,
     body: InviteRedeemRequest,
-    session: Annotated[AsyncSession, Depends(get_db)],
+    session: AsyncSession = Depends(get_db),
 ) -> TokenPair:
     invite = await get_valid_invite(session, token)
     if invite is None:
