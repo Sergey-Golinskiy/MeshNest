@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Upload as UploadIcon, Loader2 } from "lucide-react";
 
 import { api, rawPutChunk } from "@/lib/api";
-import { formatBytes, sha256Hex } from "@/lib/utils";
+import { formatBytes } from "@/lib/utils";
 
 interface InitResponse {
   upload_id: string;
