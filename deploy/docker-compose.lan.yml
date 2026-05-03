@@ -1,0 +1,16 @@
+# LAN-only override: no Cloudflare Tunnel, web exposed on port 80,
+# host /imports mounted into api+worker for direct-from-zip imports.
+services:
+  cloudflared:
+    profiles: ["never"]
+  web:
+    ports:
+      - "80:80"
+  api:
+    volumes:
+      - upload_buffer:/var/lib/meshnest/uploads
+      - ${HOME}/imports:/imports:ro
+  worker:
+    volumes:
+      - upload_buffer:/var/lib/meshnest/uploads
+      - ${HOME}/imports:/imports:ro
