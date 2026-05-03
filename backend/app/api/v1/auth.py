@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,7 +69,7 @@ async def _issue_pair(
 @limiter.limit(settings.rate_limit_login)
 async def login(
     request: Request,
-    body: LoginRequest,
+    body: LoginRequest = Body(...),
     session: AsyncSession = Depends(get_db),
 ) -> TokenPair:
     result = await session.execute(select(User).where(User.email == body.email))
@@ -155,7 +155,7 @@ async def invite_info(
 async def invite_redeem(
     request: Request,
     token: str,
-    body: InviteRedeemRequest,
+    body: InviteRedeemRequest = Body(...),
     session: AsyncSession = Depends(get_db),
 ) -> TokenPair:
     invite = await get_valid_invite(session, token)

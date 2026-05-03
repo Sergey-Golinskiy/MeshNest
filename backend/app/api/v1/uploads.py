@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response, status
 
 from app.config import settings
 from app.core.ratelimit import limiter
@@ -23,7 +23,7 @@ router = APIRouter()
 @limiter.limit(settings.rate_limit_uploads)
 async def upload_init(
     request: Request,
-    body: UploadInitRequest,
+    body: UploadInitRequest = Body(...),
     _user: User = Depends(require_contributor),
 ) -> UploadInitResponse:
     try:
