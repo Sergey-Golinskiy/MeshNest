@@ -1,6 +1,4 @@
 """Auth endpoints: /login, /refresh, /invite/{token}/info, /invite/{token}/redeem."""
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import Annotated
 

@@ -1,6 +1,4 @@
 """Chunked upload endpoints — обходят CF Free 100 MB лимит на request body."""
-from __future__ import annotations
-
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response, status
