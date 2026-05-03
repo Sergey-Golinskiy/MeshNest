@@ -68,14 +68,17 @@ export function ModelCard({ model }: { model: ModelCardType }) {
           </div>
         )}
       </div>
-      <div className="p-3">
-        <div className="line-clamp-1 font-medium" title={model.title}>
+      <div className="p-4 space-y-2">
+        <div
+          className="line-clamp-2 font-medium leading-snug min-h-[2.6em]"
+          title={model.title}
+        >
           {model.title}
         </div>
-        <div className="mt-0.5 line-clamp-1 text-xs text-text-muted">
+        <div className="line-clamp-1 text-xs text-text-muted">
           {model.category_path ?? "uncategorized"}
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <FormatBadge label="STL" present={model.has_stl} />
           <FormatBadge label="STEP" present={model.has_step} />
           <FormatBadge label="3MF" present={model.has_3mf} />

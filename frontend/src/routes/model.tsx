@@ -87,15 +87,27 @@ export default function ModelDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href={`/api/v1/models/${model.slug}/download`}
+          <button
+            type="button"
             className="btn-primary"
-            target="_blank"
-            rel="noreferrer"
+            onClick={async () => {
+              try {
+                const r = await api.get(`/models/${model.slug}/download`, {
+                  maxRedirects: 0,
+                  validateStatus: (s) => s === 200 || s === 302,
+                });
+                const url =
+                  (r as unknown as { request: XMLHttpRequest }).request?.responseURL ??
+                  (r.headers as Record<string, string>).location;
+                if (url) window.open(url, "_blank", "noreferrer");
+              } catch (e) {
+                console.error("download failed", e);
+              }
+            }}
           >
             <Download className="h-4 w-4" />
             {t("model.download_zip")}
-          </a>
+          </button>
           {canMarkReviewed && !model.is_reviewed && (
             <button
               type="button"
