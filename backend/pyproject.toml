@@ -16,7 +16,7 @@ dependencies = [
     "alembic>=1.14,<2",
     "psycopg2-binary>=2.9,<3",  # для alembic CLI sync-режима
     # Auth / security
-    "passlib[bcrypt]>=1.7.4,<2",
+    "bcrypt>=4.2,<5",
     "pyjwt[crypto]>=2.10,<3",
     "slowapi>=0.1.9,<1",
     # Object storage
