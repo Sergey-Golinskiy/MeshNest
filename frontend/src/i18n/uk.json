@@ -1,0 +1,78 @@
+{
+  "app": {
+    "name": "MeshNest",
+    "tagline": "Бібліотека 3D-моделей"
+  },
+  "nav": {
+    "library": "Бібліотека",
+    "upload": "Завантажити",
+    "import_jobs": "Завдання імпорту",
+    "admin": "Адміністрування",
+    "logout": "Вийти"
+  },
+  "auth": {
+    "login_title": "Увійти до MeshNest",
+    "email": "Email",
+    "password": "Пароль",
+    "submit": "Увійти",
+    "invite_title": "Прийняти запрошення",
+    "display_name": "Ім'я (необов'язково)",
+    "register": "Створити обліковий запис",
+    "invalid_credentials": "Невірний email або пароль",
+    "invalid_invite": "Це запрошення недійсне або вичерпане"
+  },
+  "library": {
+    "title": "Бібліотека",
+    "search_placeholder": "Пошук за назвою…",
+    "filter_categories": "Категорії",
+    "filter_tags": "Теги",
+    "filter_format": "Формат",
+    "filter_status": "Статус",
+    "needs_review": "Потребує перевірки",
+    "reviewed": "Перевірено",
+    "empty": "Моделей ще немає — почніть з імпорту пакета."
+  },
+  "model": {
+    "preview": "Прев'ю",
+    "viewer": "3D-перегляд",
+    "files": "Файли",
+    "metadata": "Метадані",
+    "download_zip": "Завантажити ZIP",
+    "download_stl": "Лише STL",
+    "mark_reviewed": "Позначити перевіреним",
+    "category": "Категорія",
+    "tags": "Теги",
+    "source": "Джерело",
+    "imported_at": "Імпортовано",
+    "viewer_pending": "3D-перегляд готується. Спробуйте через кілька хвилин.",
+    "viewer_failed": "Не вдалося згенерувати 3D-перегляд. Завантажте STL для локального перегляду."
+  },
+  "upload": {
+    "title": "Завантажити імпорт-пакет",
+    "select_file": "Виберіть meshnest_import_package.zip",
+    "uploading": "Завантаження {{percent}}%",
+    "finalizing": "Завершення на сервері…",
+    "success": "Завантаження завершено. Завдання: {{job}}",
+    "error": "Помилка: {{error}}"
+  },
+  "import_jobs": {
+    "title": "Завдання імпорту",
+    "status": "Статус",
+    "progress": "Прогрес",
+    "models": "Моделі",
+    "files": "Файли",
+    "warnings": "Попередження",
+    "started": "Розпочато",
+    "finished": "Завершено"
+  },
+  "admin": {
+    "invites": "Запрошення",
+    "create_invite": "Створити запрошення",
+    "users": "Користувачі",
+    "role": "Роль",
+    "expires_in_days": "Термін (днів)",
+    "email_hint": "Email-підказка",
+    "copy_link": "Копіювати посилання",
+    "revoke": "Анулювати"
+  }
+}

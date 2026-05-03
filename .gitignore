@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Node / frontend
+node_modules/
+.next/
+.vite/
+.cache/
+*.log
+.npm/
+.pnpm-store/
+
+# Build outputs
+frontend/dist/
+backend/dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+deploy/.env
+
+# Secrets
+*.pem
+*.key
+secrets/
+*.tunnel.json
+
+# Local data (organizer output is huge — should never be committed)
+/MeshNest_Ready_Library/
+**/MeshNest_Ready_Library/
+*.scan_index.jsonl
+*.extract_log.jsonl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker volumes (local dev)
+deploy/data/
+deploy/volumes/
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Test artifacts
+.tox/
+test-results/
+playwright-report/
+
+# OS
+desktop.ini
+$RECYCLE.BIN/
+
+# Backups
+backups/
+*.dump
+*.dump.gz

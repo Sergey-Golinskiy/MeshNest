@@ -1,0 +1,78 @@
+{
+  "app": {
+    "name": "MeshNest",
+    "tagline": "3D model library"
+  },
+  "nav": {
+    "library": "Library",
+    "upload": "Upload",
+    "import_jobs": "Import jobs",
+    "admin": "Admin",
+    "logout": "Log out"
+  },
+  "auth": {
+    "login_title": "Sign in to MeshNest",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "invite_title": "Accept invitation",
+    "display_name": "Display name (optional)",
+    "register": "Create account",
+    "invalid_credentials": "Invalid email or password",
+    "invalid_invite": "This invite link is invalid or expired"
+  },
+  "library": {
+    "title": "Library",
+    "search_placeholder": "Search by title…",
+    "filter_categories": "Categories",
+    "filter_tags": "Tags",
+    "filter_format": "Format",
+    "filter_status": "Status",
+    "needs_review": "Needs review",
+    "reviewed": "Reviewed",
+    "empty": "No models yet — start by importing a package."
+  },
+  "model": {
+    "preview": "Preview",
+    "viewer": "3D viewer",
+    "files": "Files",
+    "metadata": "Metadata",
+    "download_zip": "Download ZIP",
+    "download_stl": "STL only",
+    "mark_reviewed": "Mark as reviewed",
+    "category": "Category",
+    "tags": "Tags",
+    "source": "Source",
+    "imported_at": "Imported",
+    "viewer_pending": "3D viewer is being prepared. Refresh in a few minutes.",
+    "viewer_failed": "Could not generate 3D preview. Download the STL to view locally."
+  },
+  "upload": {
+    "title": "Upload import package",
+    "select_file": "Select meshnest_import_package.zip",
+    "uploading": "Uploading {{percent}}%",
+    "finalizing": "Finalizing on server…",
+    "success": "Upload complete. Import job: {{job}}",
+    "error": "Upload failed: {{error}}"
+  },
+  "import_jobs": {
+    "title": "Import jobs",
+    "status": "Status",
+    "progress": "Progress",
+    "models": "Models",
+    "files": "Files",
+    "warnings": "Warnings",
+    "started": "Started",
+    "finished": "Finished"
+  },
+  "admin": {
+    "invites": "Invites",
+    "create_invite": "Create invite",
+    "users": "Users",
+    "role": "Role",
+    "expires_in_days": "Expires (days)",
+    "email_hint": "Email hint (optional)",
+    "copy_link": "Copy link",
+    "revoke": "Revoke"
+  }
+}

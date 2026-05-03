@@ -1,0 +1,47 @@
+# Dev override: открытые порты, без cloudflared, hot-reload api
+# Use:  docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  cloudflared:
+    profiles: ["never"]   # отключаем в dev
+
+  web:
+    ports:
+      - "5173:80"
+
+  api:
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ../backend/app:/app/app
+      - ../backend/alembic:/app/alembic
+      - upload_buffer:/var/lib/meshnest/uploads
+    environment:
+      ENVIRONMENT: dev
+      LOG_LEVEL: DEBUG
+
+  worker:
+    command: celery -A app.tasks.celery_app:celery_app worker --concurrency=2 --loglevel=info
+    volumes:
+      - ../backend/app:/app/app
+      - upload_buffer:/var/lib/meshnest/uploads
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  meilisearch:
+    ports:
+      - "7700:7700"
