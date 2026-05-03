@@ -16,6 +16,7 @@ export interface ModelCard {
   category_path: string | null;
   tags: string[];
   preview_url: string | null;
+  thumbnails: string[];
   has_stl: boolean;
   has_step: boolean;
   has_3mf: boolean;
@@ -61,6 +62,8 @@ export interface FileItem {
   sha256: string | null;
   is_primary: boolean;
   download_url: string;
+  thumbnail_url: string | null;
+  viewer_url: string | null;
 }
 
 export interface CategoryNode {

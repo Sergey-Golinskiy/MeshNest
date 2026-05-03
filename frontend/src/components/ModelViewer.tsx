@@ -1,42 +1,26 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Bounds, Environment, OrbitControls, useGLTF } from "@react-three/drei";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
-interface Props {
-  modelIdOrSlug: string;
-  status: string;
+export interface ViewerSource {
+  fileId: string;
+  fileName: string;
+  url: string;
 }
 
-export function ModelViewer({ modelIdOrSlug, status }: Props) {
-  const { t } = useTranslation();
-  const [glbUrl, setGlbUrl] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+interface Props {
+  sources: ViewerSource[];
+  status: string;
+  selected: number;
+  onSelect: (i: number) => void;
+}
 
-  useEffect(() => {
-    if (status !== "glb_ready") return;
-    let cancelled = false;
-    (async () => {
-      try {
-        // GET /models/:id/glb returns 302 to presigned URL.
-        // axios follows redirect by default in the browser, so we just use that.
-        const r = await api.get(`/models/${modelIdOrSlug}/glb`, {
-          maxRedirects: 0,
-          validateStatus: (s) => s === 200 || s === 302,
-        });
-        const url = (r as unknown as { request: XMLHttpRequest }).request.responseURL;
-        if (!cancelled) setGlbUrl(url);
-      } catch (e) {
-        if (!cancelled) setErr(String(e));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [modelIdOrSlug, status]);
+export function ModelViewer({ sources, status, selected, onSelect }: Props) {
+  const { t } = useTranslation();
 
   if (status === "pending") {
     return <ViewerNotice message={t("model.viewer_pending")} spinner />;
@@ -44,23 +28,51 @@ export function ModelViewer({ modelIdOrSlug, status }: Props) {
   if (status === "conversion_failed") {
     return <ViewerNotice message={t("model.viewer_failed")} />;
   }
-  if (err) return <ViewerNotice message={err} />;
-  if (!glbUrl) return <ViewerNotice message={t("model.viewer_pending")} spinner />;
+  if (sources.length === 0) {
+    return <ViewerNotice message={t("model.viewer_pending")} spinner />;
+  }
+
+  const current = sources[Math.min(selected, sources.length - 1)];
 
   return (
-    <div className="relative h-[500px] w-full overflow-hidden rounded-lg border border-border bg-bg-subtle">
-      <Canvas camera={{ position: [3, 3, 3], fov: 45 }} dpr={[1, 2]}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[5, 10, 5]} intensity={0.8} />
-        <Suspense fallback={null}>
-          <Bounds fit clip observe margin={1.2}>
-            <GLBModel url={glbUrl} />
-          </Bounds>
-          <Environment preset="studio" />
-        </Suspense>
-        <OrbitControls enableDamping makeDefault />
-        <gridHelper args={[50, 50, "#d4d4d8", "#e4e4e7"]} />
-      </Canvas>
+    <div className="space-y-3">
+      <div className="relative h-[500px] w-full overflow-hidden rounded-lg border border-border bg-bg-subtle">
+        <Canvas camera={{ position: [3, 3, 3], fov: 45 }} dpr={[1, 2]}>
+          <ambientLight intensity={0.6} />
+          <directionalLight position={[5, 10, 5]} intensity={0.8} />
+          <Suspense fallback={null}>
+            <Bounds fit clip observe margin={1.2}>
+              <GLBModel url={current.url} />
+            </Bounds>
+            <Environment preset="studio" />
+          </Suspense>
+          <OrbitControls enableDamping makeDefault />
+          <gridHelper args={[50, 50, "#d4d4d8", "#e4e4e7"]} />
+        </Canvas>
+        <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/55 px-2 py-0.5 text-xs font-mono text-white">
+          {current.fileName}
+        </div>
+      </div>
+      {sources.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {sources.map((s, i) => (
+            <button
+              key={s.fileId}
+              type="button"
+              onClick={() => onSelect(i)}
+              className={cn(
+                "rounded-md border px-2.5 py-1 text-xs font-mono transition",
+                i === selected
+                  ? "border-accent bg-accent-subtle text-accent"
+                  : "border-border text-text-muted hover:border-text-muted hover:text-text",
+              )}
+              title={s.fileName}
+            >
+              {s.fileName.length > 36 ? s.fileName.slice(0, 33) + "…" : s.fileName}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -112,6 +112,7 @@ def _import_one_from_zip(
         session.add(ModelTag(model_id=model.id, tag_id=t.id))
 
     has = {"stl": 0, "step": 0, "3mf": 0, "image": 0, "video": 0, "doc": 0}
+    new_file_ids: list[tuple[uuid.UUID, FileType, str]] = []
     for f_meta in files_meta:
         rel = f_meta["relative_path"]
         try:
@@ -130,8 +131,10 @@ def _import_one_from_zip(
         is_primary = is_primary_raw in ("true", "1", "True")
         sha256 = (f_meta.get("sha256") or "").strip() or None
 
+        file_id = uuid.uuid4()
         session.add(
             File(
+                id=file_id,
                 model_id=model.id,
                 file_name=f_meta.get("file_name") or sub.rsplit("/", 1)[-1],
                 original_file_name=f_meta.get("original_file_name") or sub.rsplit("/", 1)[-1],
@@ -144,6 +147,7 @@ def _import_one_from_zip(
                 is_primary=is_primary,
             )
         )
+        new_file_ids.append((file_id, ftype, ext))
 
         if ftype == FileType.mesh and ext == "stl":
             has["stl"] += 1
@@ -203,6 +207,9 @@ def _import_one_from_zip(
             pass
 
     session.flush()
+    # Stash file IDs on the model object so the caller can dispatch
+    # post-import tasks (thumbnails / GLBs) once the row is committed.
+    model._post_import_files = new_file_ids  # type: ignore[attr-defined]
     return model
 
 
@@ -246,14 +253,31 @@ def main() -> None:
             session.commit()
             print(f"ImportJob id={job.id}")
 
+            from app.tasks.conversion_tasks import (
+                extract_3mf_thumbnail,
+                generate_file_thumbnail,
+                stl_to_glb,
+                stl_to_glb_per_file,
+            )
+
             ok = 0
             fail = 0
             for m in slice_models:
                 try:
-                    _import_one_from_zip(
+                    model_obj = _import_one_from_zip(
                         session, s3, zf, job, m, files_by_model.get(m["id"], [])
                     )
                     session.commit()
+                    # Kick per-file tasks AFTER commit so workers see fresh rows
+                    for fid, ftype, ext in getattr(model_obj, "_post_import_files", []):
+                        # Thumbnail: STL/OBJ/FBX/3MF/image
+                        if (ftype.value == "mesh" and ext in ("stl", "obj", "fbx")) \
+                                or (ftype.value == "project" and ext == "3mf") \
+                                or (ftype.value == "image" and ext in ("jpg", "jpeg", "png", "webp", "bmp")):
+                            generate_file_thumbnail.delay(str(fid))
+                        # Per-file GLB for mesh
+                        if ftype.value == "mesh" and ext in ("stl", "obj", "fbx"):
+                            stl_to_glb_per_file.delay(str(fid))
                     ok += 1
                     print(f"  OK [{ok+fail}/{len(slice_models)}] {m['slug']}")
                 except Exception as exc:
@@ -269,16 +293,8 @@ def main() -> None:
             )
             session.commit()
 
-            from app.tasks.conversion_tasks import extract_3mf_thumbnail, stl_to_glb
-
-            new_models = session.execute(
-                select(Model.id, Model.has_stl, Model.has_3mf).where(Model.import_job_id == job.id)
-            ).all()
-            for mid, has_stl, has_3mf in new_models:
-                if has_stl:
-                    stl_to_glb.delay(str(mid))
-                if has_3mf:
-                    extract_3mf_thumbnail.delay(str(mid))
+            # Per-file tasks already dispatched per model above; no model-level
+            # GLB / 3MF extract dispatch needed here.
 
             try:
                 from app.services import search as search_svc

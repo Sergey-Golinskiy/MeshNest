@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, CheckCircle2, Download, Image as ImageIcon } from "lucide-react";
 
 import { api } from "@/lib/api";
-import { ModelViewer } from "@/components/ModelViewer";
+import { ModelViewer, type ViewerSource } from "@/components/ModelViewer";
 import { useAuth } from "@/lib/auth";
-import { formatBytes } from "@/lib/utils";
+import { formatBytes, cn } from "@/lib/utils";
 import type { FileItem, ModelDetail } from "@/types";
 
 export default function ModelDetailPage() {
@@ -19,6 +19,8 @@ export default function ModelDetailPage() {
     user?.role === "admin" || user?.role === "contributor";
 
   const [tab, setTab] = useState<"preview" | "viewer" | "files">("preview");
+  const [viewerIdx, setViewerIdx] = useState(0);
+  const [previewIdx, setPreviewIdx] = useState(0);
 
   const { data: model } = useQuery({
     queryKey: ["model", idOrSlug],
@@ -36,6 +38,22 @@ export default function ModelDetailPage() {
     mutationFn: () => api.post(`/models/${idOrSlug}/mark-reviewed`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["model", idOrSlug] }),
   });
+
+  const previewSlides = useMemo(() => {
+    const set: string[] = [];
+    if (model?.preview_url) set.push(model.preview_url);
+    for (const t of model?.thumbnails ?? []) {
+      if (!set.includes(t)) set.push(t);
+    }
+    return set;
+  }, [model]);
+
+  const viewerSources: ViewerSource[] = useMemo(() => {
+    if (!files) return [];
+    return files
+      .filter((f) => f.viewer_url)
+      .map((f) => ({ fileId: f.id, fileName: f.file_name, url: f.viewer_url as string }));
+  }, [files]);
 
   if (!model) {
     return <div className="text-text-muted">Loading…</div>;
@@ -119,12 +137,49 @@ export default function ModelDetailPage() {
 
       {tab === "preview" && (
         <div className="card overflow-hidden">
-          {model.preview_url ? (
-            <img
-              src={model.preview_url}
-              alt={model.title}
-              className="max-h-[600px] w-full object-contain bg-bg-subtle"
-            />
+          {previewSlides.length > 0 ? (
+            <div className="space-y-3">
+              <div className="relative bg-bg-subtle">
+                {previewSlides.map((src, i) => (
+                  <img
+                    key={src + i}
+                    src={src}
+                    alt={`${model.title} ${i + 1}`}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                    className={cn(
+                      "max-h-[600px] w-full object-contain",
+                      i === previewIdx ? "block" : "hidden",
+                    )}
+                  />
+                ))}
+              </div>
+              {previewSlides.length > 1 && (
+                <div className="flex flex-wrap items-center gap-1.5 px-3 pb-3">
+                  {previewSlides.map((src, i) => (
+                    <button
+                      key={src + i}
+                      type="button"
+                      onClick={() => setPreviewIdx(i)}
+                      className={cn(
+                        "h-14 w-14 overflow-hidden rounded border transition",
+                        i === previewIdx ? "border-accent" : "border-border hover:border-text-muted",
+                      )}
+                    >
+                      <img
+                        src={src}
+                        alt=""
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                        }}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <div className="flex h-[400px] items-center justify-center text-text-subtle">
               <ImageIcon className="h-16 w-16" />
@@ -134,7 +189,12 @@ export default function ModelDetailPage() {
       )}
 
       {tab === "viewer" && (
-        <ModelViewer modelIdOrSlug={model.slug} status={model.viewer_status} />
+        <ModelViewer
+          sources={viewerSources}
+          status={model.viewer_status}
+          selected={viewerIdx}
+          onSelect={setViewerIdx}
+        />
       )}
 
       {tab === "files" && files && (

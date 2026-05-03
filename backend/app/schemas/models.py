@@ -28,6 +28,7 @@ class ModelCard(BaseModel):
     category_path: str | None
     tags: list[str] = Field(default_factory=list)
     preview_url: str | None
+    thumbnails: list[str] = Field(default_factory=list)  # carousel: per-file thumb URLs
     has_stl: bool
     has_step: bool
     has_3mf: bool
@@ -81,7 +82,9 @@ class FileItem(BaseModel):
     size_bytes: int
     sha256: str | None
     is_primary: bool
-    download_url: str  # presigned URL
+    download_url: str           # presigned URL для скачивания исходника
+    thumbnail_url: str | None   # presigned URL до derived/thumbs/{file_id}.png (если задача отработала)
+    viewer_url: str | None      # presigned URL до derived/glb/{file_id}.glb для mesh/3MF
 
 
 # ====== Category ======

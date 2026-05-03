@@ -32,13 +32,53 @@ def _category_path(model: Model) -> str | None:
     return model.category.path if model.category else None
 
 
-async def _build_card(model: Model) -> ModelCard:
+_FILE_TYPE_PRIORITY = {
+    "image": 0,     # gallery_images first
+    "project": 1,   # 3MF (often has nice embedded thumb)
+    "mesh": 2,      # STL/OBJ
+    "cad": 3,       # STEP — likely no thumb yet
+    "document": 4,
+    "other": 5,
+}
+
+_THUMB_LIMIT_PER_CARD = 6
+
+
+async def _build_card(model: Model, files: list[File] | None = None) -> ModelCard:
     storage = get_storage()
-    preview_url = None
+    preview_url: str | None = None
     if model.preview_storage_key:
         preview_url = await storage.presign_get(
             settings.s3_bucket_derived, model.preview_storage_key, settings.s3_presigned_ttl
         )
+
+    # Collect carousel thumbnails: prefer image files, then 3MF, then mesh.
+    thumbnails: list[str] = []
+    if files:
+        ranked = sorted(
+            files,
+            key=lambda f: (
+                _FILE_TYPE_PRIORITY.get(f.file_type.value, 99),
+                0 if f.is_primary else 1,
+                f.file_name,
+            ),
+        )
+        for f in ranked[:_THUMB_LIMIT_PER_CARD]:
+            ext = (f.extension or "").lstrip(".").lower()
+            is_thumbable = (
+                (f.file_type.value == "image" and ext in ("jpg", "jpeg", "png", "webp", "bmp"))
+                or (f.file_type.value == "project" and ext == "3mf")
+                or (f.file_type.value == "mesh" and ext in ("stl", "obj", "fbx"))
+            )
+            if not is_thumbable:
+                continue
+            url = await storage.presign_get(
+                settings.s3_bucket_derived,
+                f"thumbs/{f.id}.png",
+                settings.s3_presigned_ttl,
+            )
+            thumbnails.append(url)
+
     return ModelCard(
         id=model.id,
         slug=model.slug,
@@ -46,6 +86,7 @@ async def _build_card(model: Model) -> ModelCard:
         category_path=_category_path(model),
         tags=[t.slug for t in model.tags],
         preview_url=preview_url,
+        thumbnails=thumbnails,
         has_stl=model.has_stl,
         has_step=model.has_step,
         has_3mf=model.has_3mf,
@@ -156,8 +197,9 @@ async def list_models(
         base = base.order_by(desc(Model.imported_at), desc(Model.created_at))
 
     base = base.offset((page - 1) * page_size).limit(page_size)
+    base = base.options(selectinload(Model.files))
     rows = (await session.execute(base)).scalars().all()
-    items = [await _build_card(m) for m in rows]
+    items = [await _build_card(m, m.files) for m in rows]
     return ModelListResponse(items=items, total=total, page=page, page_size=page_size)
 
 
@@ -168,7 +210,12 @@ async def get_model(
     _user: CurrentUser,
 ) -> ModelDetail:
     model = await _resolve_model(session, id_or_slug)
-    card = await _build_card(model)
+    files = (
+        await session.execute(
+            select(File).where(File.model_id == model.id)
+        )
+    ).scalars().all()
+    card = await _build_card(model, files)
     return ModelDetail(
         **card.model_dump(),
         original_title=model.original_title,
@@ -208,9 +255,26 @@ async def list_model_files(
     storage = get_storage()
     out: list[FileItem] = []
     for f in files:
-        url = await storage.presign_get(
+        download_url = await storage.presign_get(
             settings.s3_bucket_files, f.storage_key, settings.s3_presigned_ttl
         )
+        ext = (f.extension or "").lstrip(".").lower()
+        thumbnail_url: str | None = None
+        viewer_url: str | None = None
+        if (f.file_type.value == "image" and ext in ("jpg", "jpeg", "png", "webp", "bmp")) \
+                or (f.file_type.value == "project" and ext == "3mf") \
+                or (f.file_type.value == "mesh" and ext in ("stl", "obj", "fbx")):
+            thumbnail_url = await storage.presign_get(
+                settings.s3_bucket_derived,
+                f"thumbs/{f.id}.png",
+                settings.s3_presigned_ttl,
+            )
+        if f.file_type.value == "mesh" and ext in ("stl", "obj", "fbx"):
+            viewer_url = await storage.presign_get(
+                settings.s3_bucket_derived,
+                f"glb/{f.id}.glb",
+                settings.s3_presigned_ttl,
+            )
         out.append(
             FileItem(
                 id=f.id,
@@ -221,7 +285,9 @@ async def list_model_files(
                 size_bytes=f.size_bytes,
                 sha256=f.sha256,
                 is_primary=f.is_primary,
-                download_url=url,
+                download_url=download_url,
+                thumbnail_url=thumbnail_url,
+                viewer_url=viewer_url,
             )
         )
     return out
