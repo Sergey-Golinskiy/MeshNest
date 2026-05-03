@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -109,11 +109,11 @@ async def refresh(
     return AccessOnly(access_token=access, access_expires_at=access_exp)
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def logout(
     body: RefreshRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
-) -> None:
+) -> Response:
     h = hash_refresh_for_db(body.refresh_token)
     result = await session.execute(
         select(RefreshToken).where(RefreshToken.token_hash == h)
@@ -122,6 +122,7 @@ async def logout(
     if rt and rt.revoked_at is None:
         rt.revoked_at = _now()
         await session.flush()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/invite/{token}/info", response_model=InviteInfo)

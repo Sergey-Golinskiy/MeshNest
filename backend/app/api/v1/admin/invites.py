@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,12 +72,12 @@ async def create_invite_endpoint(
     return out
 
 
-@router.delete("/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{invite_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def delete_invite(
     invite_id: uuid.UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
     _admin: Annotated[User, Depends(require_admin)],
-) -> None:
+) -> Response:
     invite = await session.get(Invite, invite_id)
     if invite is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Invite not found")
@@ -88,3 +88,4 @@ async def delete_invite(
         )
     await session.delete(invite)
     await session.flush()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

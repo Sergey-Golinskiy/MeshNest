@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from app.config import settings
 from app.core.ratelimit import limiter
@@ -37,14 +37,18 @@ async def upload_init(
     )
 
 
-@router.put("/uploads/{upload_id}/chunk", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/uploads/{upload_id}/chunk",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 @limiter.limit(settings.rate_limit_uploads)
 async def upload_chunk(
     request: Request,
     upload_id: str,
     n: Annotated[int, Query(ge=0)],
     _user: Annotated[User, Depends(require_contributor)],
-) -> None:
+) -> Response:
     """Принимает binary body чанка. Размер enforced на serv-конфиге nginx (`client_max_body_size 100m`)."""
     raw = await request.body()
     if not raw:
@@ -57,6 +61,7 @@ async def upload_chunk(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/uploads/{upload_id}", response_model=UploadStatus)
