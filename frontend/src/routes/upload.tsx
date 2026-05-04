@@ -1,106 +1,196 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Upload as UploadIcon, Loader2 } from "lucide-react";
+import { Upload as UploadIcon, Loader2, X } from "lucide-react";
 
-import { api, rawPutChunk } from "@/lib/api";
-import { formatBytes } from "@/lib/utils";
-
-interface InitResponse {
-  upload_id: string;
-  chunk_size: number;
-  total_chunks: number;
-}
+import { api } from "@/lib/api";
+import { formatBytes, cn } from "@/lib/utils";
+import type { ModelDetail } from "@/types";
 
 export default function UploadPage() {
   const { t } = useTranslation();
-  const [file, setFile] = useState<File | null>(null);
+  const navigate = useNavigate();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("");
+  const [tags, setTags] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [status, setStatus] = useState<"idle" | "uploading" | "error">("idle");
   const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState<"idle" | "hashing" | "uploading" | "finalizing" | "done" | "error">("idle");
-  const [jobId, setJobId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  async function start() {
-    if (!file) return;
+  function addFiles(newFiles: FileList | File[]) {
+    setFiles((prev) => {
+      const existing = new Set(prev.map((f) => f.name + ":" + f.size));
+      const added: File[] = [];
+      for (const f of Array.from(newFiles)) {
+        if (!existing.has(f.name + ":" + f.size)) added.push(f);
+      }
+      return [...prev, ...added];
+    });
+  }
+
+  function removeFile(idx: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function submit() {
+    if (files.length === 0) {
+      setErr(t("upload.no_files"));
+      return;
+    }
+    if (!title.trim() && files.length === 1) {
+      // derive default title from filename without extension
+      setTitle(files[0].name.replace(/\.[^.]+$/, ""));
+    }
+    const finalTitle = title.trim() || files[0].name.replace(/\.[^.]+$/, "");
+
     setErr(null);
     setProgress(0);
-    setJobId(null);
+    setStatus("uploading");
+
+    const fd = new FormData();
+    fd.append("title", finalTitle);
+    if (category.trim()) fd.append("category", category.trim());
+    if (tags.trim()) fd.append("tags", tags.trim());
+    for (const f of files) fd.append("files", f, f.name);
 
     try {
-      // 1. SHA256 (опц.) — очень большие файлы могут тормозить, делаем по chunks
-      // Для MVP: пропускаем глобальный sha256 (передаём null), сервер сам посчитает.
-
-      // 2. init
-      setStatus("uploading");
-      const init = await api.post<InitResponse>("/uploads/init", {
-        filename: file.name,
-        total_size: file.size,
+      const r = await api.post<ModelDetail>("/models", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (e) => {
+          if (e.total) setProgress(Math.round((e.loaded / e.total) * 100));
+        },
       });
-      const { upload_id, chunk_size, total_chunks } = init.data;
-
-      // 3. parallel chunks (3 одновременно)
-      const concurrency = 3;
-      let nextChunk = 0;
-      let done = 0;
-
-      async function worker() {
-        while (true) {
-          const myIndex = nextChunk++;
-          if (myIndex >= total_chunks) return;
-          const start = myIndex * chunk_size;
-          const end = Math.min(file!.size, start + chunk_size);
-          const blob = file!.slice(start, end);
-          await rawPutChunk(upload_id, myIndex, blob);
-          done++;
-          setProgress(Math.floor((done / total_chunks) * 100));
-        }
-      }
-      await Promise.all(Array.from({ length: concurrency }, worker));
-
-      // 4. complete
-      setStatus("finalizing");
-      await api.post(`/uploads/${upload_id}/complete`);
-
-      // 5. trigger import
-      const r = await api.post<{ import_job_id: string }>("/import-package", {
-        upload_id,
-      });
-      setJobId(r.data.import_job_id);
-      setStatus("done");
+      navigate(`/models/${r.data.slug}`);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg =
+        (e as { response?: { data?: { detail?: string } }; message?: string })
+          ?.response?.data?.detail ??
+        (e as Error)?.message ??
+        String(e);
       setErr(msg);
       setStatus("error");
     }
   }
 
-  return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold mb-6">{t("upload.title")}</h1>
+  const totalSize = files.reduce((s, f) => s + f.size, 0);
 
-      <div className="card p-6 space-y-4">
-        <label className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed border-border p-8 cursor-pointer hover:bg-bg-subtle">
-          <UploadIcon className="h-8 w-8 text-text-muted" />
-          <span className="text-sm text-text-muted">{t("upload.select_file")}</span>
+  return (
+    <div className="max-w-3xl space-y-6">
+      <header>
+        <h1 className="text-2xl font-semibold">{t("upload.title")}</h1>
+        <p className="mt-1 text-sm text-text-muted">{t("upload.hint")}</p>
+      </header>
+
+      <div className="card space-y-4 p-6">
+        <div>
+          <label className="block text-sm font-medium" htmlFor="title">
+            {t("upload.model_title")}
+          </label>
           <input
+            id="title"
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={t("upload.title_placeholder")}
+            className="input mt-1"
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium" htmlFor="category">
+              {t("upload.category")}
+            </label>
+            <input
+              id="category"
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="animals/cats"
+              className="input mt-1 font-mono text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium" htmlFor="tags">
+              {t("upload.tags")}
+            </label>
+            <input
+              id="tags"
+              type="text"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="flexi, articulated"
+              className="input mt-1 font-mono text-sm"
+            />
+          </div>
+        </div>
+
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
+          }}
+          onClick={() => inputRef.current?.click()}
+          className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed border-border p-10 text-center hover:bg-bg-subtle"
+        >
+          <UploadIcon className="h-10 w-10 text-text-muted" />
+          <div className="font-medium">{t("upload.drop_here")}</div>
+          <div className="text-sm text-text-muted">{t("upload.formats")}</div>
+          <input
+            ref={inputRef}
             type="file"
-            accept=".zip"
+            multiple
+            accept=".stl,.step,.stp,.3mf,.obj,.fbx,.zip,.jpg,.jpeg,.png,.webp,.bmp,.mp4,.mov,.webm,.txt,.md,.pdf"
             onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null);
-              setStatus("idle");
-              setProgress(0);
-              setJobId(null);
-              setErr(null);
+              if (e.target.files) addFiles(e.target.files);
+              e.target.value = "";
             }}
             className="hidden"
           />
-          {file && (
-            <span className="text-sm font-mono">
-              {file.name} · {formatBytes(file.size)}
-            </span>
-          )}
-        </label>
+        </div>
 
-        {(status === "uploading" || status === "finalizing") && (
+        {files.length > 0 && (
+          <div className="rounded border border-border">
+            <div className="flex items-center justify-between border-b border-border bg-bg-subtle px-3 py-2 text-sm">
+              <span>
+                {files.length} {t("upload.files_count")} · {formatBytes(totalSize)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFiles([])}
+                className="text-xs text-text-muted hover:text-text"
+              >
+                {t("upload.clear")}
+              </button>
+            </div>
+            <ul className="divide-y divide-border">
+              {files.map((f, i) => (
+                <li key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
+                  <span className="flex-1 truncate font-mono text-xs">{f.name}</span>
+                  <span className="text-xs text-text-muted tabular-nums">
+                    {formatBytes(f.size)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    className="text-text-muted hover:text-danger"
+                    disabled={status === "uploading"}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {status === "uploading" && (
           <div>
             <div className="h-2 w-full overflow-hidden rounded bg-bg-subtle">
               <div
@@ -110,29 +200,29 @@ export default function UploadPage() {
             </div>
             <p className="mt-2 flex items-center gap-2 text-sm text-text-muted">
               <Loader2 className="h-4 w-4 animate-spin" />
-              {status === "finalizing"
-                ? t("upload.finalizing")
-                : t("upload.uploading", { percent: progress })}
+              {t("upload.uploading", { percent: progress })}
             </p>
           </div>
         )}
 
-        {status === "done" && jobId && (
-          <p className="text-sm text-success">
-            {t("upload.success", { job: jobId })}
-          </p>
+        {err && (
+          <p className="text-sm text-danger">{t("upload.error", { error: err })}</p>
         )}
 
-        {err && <p className="text-sm text-danger">{t("upload.error", { error: err })}</p>}
-
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={!file || status === "uploading" || status === "finalizing"}
-          onClick={start}
-        >
-          Start upload
-        </button>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            className={cn(
+              "btn-primary",
+              (files.length === 0 || status === "uploading") && "cursor-not-allowed opacity-50",
+            )}
+            disabled={files.length === 0 || status === "uploading"}
+            onClick={submit}
+          >
+            <UploadIcon className="h-4 w-4" />
+            {t("upload.submit")}
+          </button>
+        </div>
       </div>
     </div>
   );
