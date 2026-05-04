@@ -315,17 +315,36 @@ def _resize_image_to_thumb(local_img_path: Path, out_png: Path, size: tuple[int,
 
 
 def _extract_3mf_embedded(local_3mf_path: Path, out_png: Path, size: tuple[int, int]) -> bool:
+    """Pull a preview image out of a .3mf zip if one is embedded.
+
+    Different slicers stash it differently:
+      * generic spec  → Metadata/thumbnail.png
+      * Bambu Studio  → Metadata/plate_1.png, plate_top.png etc.
+      * PrusaSlicer   → Metadata/thumbnail.png (sometimes thumbnail_PNG)
+
+    Strategy: prefer files literally containing "thumbnail" or "plate" in
+    the name; otherwise pick the largest png/jpg inside Metadata/.
+    """
     from PIL import Image
 
     with zipfile.ZipFile(local_3mf_path) as zf:
-        target = None
-        for name in zf.namelist():
-            n = name.lower()
-            if "thumbnail" in n and n.endswith((".png", ".jpg", ".jpeg")):
-                target = name
-                break
-        if target is None:
+        candidates: list[tuple[int, str]] = []  # (size, name)
+        for info in zf.infolist():
+            n = info.filename
+            nl = n.lower()
+            if not nl.endswith((".png", ".jpg", ".jpeg")):
+                continue
+            if not (nl.startswith("metadata/") or "thumbnail" in nl or "plate" in nl):
+                continue
+            candidates.append((info.file_size, n))
+        if not candidates:
             return False
+        # Prefer explicit 'thumbnail' first, else the biggest plate image
+        preferred = next(
+            (c for c in sorted(candidates, key=lambda x: -x[0]) if "thumbnail" in c[1].lower()),
+            None,
+        )
+        target = preferred[1] if preferred else max(candidates, key=lambda x: x[0])[1]
         raw = zf.read(target)
     with Image.open(io.BytesIO(raw)) as im:
         im = im.convert("RGB")

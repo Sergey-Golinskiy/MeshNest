@@ -28,6 +28,7 @@ dependencies = [
     # 3D processing
     "trimesh>=4.5,<5",
     "networkx>=3.3,<4",       # trimesh нужен networkx для 3MF/scene graph
+    "lxml>=5.3,<6",            # trimesh нужен lxml для 3MF XML parser
     "numpy>=1.26,<3",
     "pygltflib>=1.16,<2",
     "Pillow>=11,<12",
